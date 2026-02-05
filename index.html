@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clawdy's Laser Chase</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #FFF5EE; /* Seashell */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+            cursor: none; /* We'll use the cat paw instead */
+        }
+
+        #ui-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(255, 182, 193, 0.8); /* Light Pink with transparency */
+            padding: 10px 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            pointer-events: none;
+            border: 2px solid #FFA07A; /* Light Salmon */
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 24px;
+            color: #8B4513; /* Saddle Brown */
+        }
+
+        #scoreboard {
+            font-size: 20px;
+            font-weight: bold;
+            color: #D2691E; /* Chocolate */
+        }
+
+        #instructions {
+            margin-top: 5px;
+            font-size: 14px;
+            color: #8B4513;
+            font-style: italic;
+        }
+
+        canvas {
+            display: block;
+            touch-action: none; /* Prevent scrolling while playing */
+        }
+    </style>
+</head>
+<body>
+    <div id="ui-container">
+        <h1>Clawdy's Laser Chase</h1>
+        <div id="scoreboard">Score: <span id="score">0</span></div>
+        <div id="instructions">Catch the red dot!</div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+
+        let score = 0;
+        let width, height;
+        let lastTime = 0;
+        let laserSpeedMultiplier = 1;
+
+        const mouse = {
+            x: -100,
+            y: -100
+        };
+
+        const laser = {
+            x: 0,
+            y: 0,
+            dx: 2,
+            dy: 2,
+            radius: 8,
+            baseSpeed: 3
+        };
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+
+            // Center laser initially
+            if (laser.x === 0 && laser.y === 0) {
+                laser.x = width / 2;
+                laser.y = height / 2;
+            }
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            if (e.touches.length > 0) {
+                mouse.x = e.touches[0].clientX;
+                mouse.y = e.touches[0].clientY;
+            }
+            e.preventDefault();
+        }, { passive: false });
+
+        window.addEventListener('mousedown', checkHit);
+        window.addEventListener('touchstart', (e) => {
+            if (e.touches.length > 0) {
+                mouse.x = e.touches[0].clientX;
+                mouse.y = e.touches[0].clientY;
+                checkHit();
+            }
+        });
+
+        function checkHit() {
+            const dist = Math.sqrt(Math.pow(mouse.x - laser.x, 2) + Math.pow(mouse.y - laser.y, 2));
+            if (dist < laser.radius + 20) { // Give a little buffer for easier hitting
+                score++;
+                scoreElement.textContent = score;
+
+                // Teleport laser to a new random location on hit
+                laser.x = Math.random() * (width - 2 * laser.radius) + laser.radius;
+                laser.y = Math.random() * (height - 2 * laser.radius) + laser.radius;
+
+                // Randomize direction
+                const angle = Math.random() * Math.PI * 2;
+                laser.dx = Math.cos(angle) * laser.baseSpeed;
+                laser.dy = Math.sin(angle) * laser.baseSpeed;
+            }
+        }
+
+        function updateLaser(deltaTime) {
+            // Move laser
+            laser.x += laser.dx * laserSpeedMultiplier;
+            laser.y += laser.dy * laserSpeedMultiplier;
+
+            // Bounce off edges
+            if (laser.x + laser.radius > width || laser.x - laser.radius < 0) {
+                laser.dx *= -1;
+                // Add a bit of randomness to bounce
+                laser.dy += (Math.random() - 0.5) * 2;
+            }
+            if (laser.y + laser.radius > height || laser.y - laser.radius < 0) {
+                laser.dy *= -1;
+                // Add a bit of randomness to bounce
+                laser.dx += (Math.random() - 0.5) * 2;
+            }
+
+            // Normalize velocity to maintain speed
+            const currentSpeed = Math.sqrt(laser.dx * laser.dx + laser.dy * laser.dy);
+            laser.dx = (laser.dx / currentSpeed) * laser.baseSpeed;
+            laser.dy = (laser.dy / currentSpeed) * laser.baseSpeed;
+
+            // Increase speed over time
+            laserSpeedMultiplier += 0.0001 * deltaTime;
+        }
+
+        function drawLaser() {
+            // Draw a glowing red dot
+            ctx.beginPath();
+            ctx.arc(laser.x, laser.y, laser.radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#FF0000';
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#FF0000';
+            ctx.fill();
+            ctx.closePath();
+
+            // Reset shadow for other drawings
+            ctx.shadowBlur = 0;
+        }
+
+        function drawPaw() {
+            const pawColor = '#DEB887'; // Burly Wood
+            const padColor = '#FFC0CB'; // Pink
+
+            ctx.save();
+            ctx.translate(mouse.x, mouse.y);
+
+            // Draw paw pad (main)
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 20, 15, 0, 0, Math.PI * 2);
+            ctx.fillStyle = pawColor;
+            ctx.fill();
+            ctx.closePath();
+
+            // Draw toe pads
+            const toeOffsets = [
+                { x: -15, y: -15 },
+                { x: -5, y: -20 },
+                { x: 5, y: -20 },
+                { x: 15, y: -15 }
+            ];
+
+            toeOffsets.forEach(offset => {
+                ctx.beginPath();
+                ctx.arc(offset.x, offset.y, 6, 0, Math.PI * 2);
+                ctx.fillStyle = pawColor;
+                ctx.fill();
+                ctx.closePath();
+            });
+
+            // Draw small inner pads
+            ctx.beginPath();
+            ctx.ellipse(0, 2, 12, 8, 0, 0, Math.PI * 2);
+            ctx.fillStyle = padColor;
+            ctx.fill();
+            ctx.closePath();
+
+            ctx.restore();
+        }
+
+        function gameLoop(timestamp) {
+            const deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+
+            ctx.clearRect(0, 0, width, height);
+
+            updateLaser(deltaTime || 0);
+            drawLaser();
+            drawPaw();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        requestAnimationFrame(gameLoop);
+    </script>
+</body>
+</html>
