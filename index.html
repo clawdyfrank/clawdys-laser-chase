@@ -122,7 +122,7 @@
 
         function checkHit() {
             const dist = Math.sqrt(Math.pow(mouse.x - laser.x, 2) + Math.pow(mouse.y - laser.y, 2));
-            if (dist < laser.radius + 20) { // Give a little buffer for easier hitting
+            if (dist < laser.radius + 30) { // Give a little buffer for easier hitting
                 score++;
                 scoreElement.textContent = score;
 
